@@ -849,6 +849,9 @@ def run_comprehensive_analysis(stock_identity, force_refresh):
 
 def display_company_analysis(stock_identity):
     """显示公司分析"""
+    if stock_identity.get('market_name', '') not in ['A股', '港股']:
+        return
+
     st.divider()
     st.subheader("🏢 公司分析")
     
@@ -870,7 +873,10 @@ def display_company_analysis(stock_identity):
                     include_company_analysis=True
                 )
         else:
-            basic_info_data = stock_tools.get_basic_info(stock_identity, use_cache=use_cache, force_refresh=force_refresh)
+            basic_info_data = stock_tools.get_basic_info(stock_identity, 
+                                                         use_cache=use_cache, 
+                                                         force_refresh=force_refresh,
+                                                         include_company_analysis=False)
         
         if "ai_company_report" not in st.session_state:
             st.session_state.ai_company_report = {}
@@ -893,7 +899,7 @@ def display_company_analysis(stock_identity):
                 st.caption(f"分析报告生成时间: {st.session_state.ai_company_report[stock_code]['timestamp']}")
         else:
             st.info("💡 请在查询时勾选「AI分析」选项，AI将按照「干啥、为啥、靠啥、处哪、谁敌、怎么赚、有啥险」七个要点为您分析该公司")
-                
+
     except Exception as e:
         st.error(f"加载公司分析数据失败: {str(e)}")
 
