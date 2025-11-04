@@ -292,7 +292,11 @@ def fetch_current_indices() -> tuple:
     
     try:
         print("   获取沪深重要指数...")
-        df_indices = ak.stock_zh_index_spot_em('沪深重要指数')
+        try:
+            df_indices = ak.stock_zh_index_spot_em('沪深重要指数')
+        except Exception as e:
+            print(f"      ❌ 使用akshare获取指数数据失败: {e}, 尝试使用新浪接口...")
+            df_indices = ak.stock_zh_index_spot_sina()
         
         if not df_indices.empty:
             indices_list = []
