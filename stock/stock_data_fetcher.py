@@ -61,23 +61,6 @@ class StockDataFetcher:
             KLineType.MONTH: 103,
         }
     
-    def _get_previous_trading_day(self) -> str:
-        """计算前一个交易日"""
-        today = datetime.now()
-        weekday = today.weekday()  # 0=Monday, 1=Tuesday, ..., 6=Sunday
-        
-        if weekday == 0:
-            # 周一，前一个交易日是上周五
-            prev_trading_day = today - timedelta(days=3)
-        elif weekday == 6:
-            # 周日，前一个交易日是上周五
-            prev_trading_day = today - timedelta(days=2)
-        else:
-            # 周二到周六，前一个交易日是前一天
-            prev_trading_day = today - timedelta(days=1)
-        
-        return prev_trading_day.strftime("%Y-%m-%d")
-    
     def initialize(self) -> bool:
         """初始化 efinance 模块"""
         try:
@@ -148,7 +131,8 @@ class StockDataFetcher:
         cached_data = cache_manager.get_cached_kline(symbol, kline_type, count)
         if cached_data:
             # 检查是否包含前一个交易日的数据
-            previous_trading_day = self._get_previous_trading_day()
+            from stock.stock_data_tools import get_previous_trading_day
+            previous_trading_day = get_previous_trading_day()
             has_previous_trading_day_data = any(
                 kline.datetime.startswith(previous_trading_day) for kline in cached_data
             )

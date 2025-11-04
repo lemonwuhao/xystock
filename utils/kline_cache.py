@@ -179,6 +179,20 @@ class KLineCacheManager:
                     data_type=row.get('data_type', 'stock')
                 ))
             
+            # 检查是否包含前一个交易日的数据（仅对日线和指数日线进行检查）
+            if kline_type in [KLineType.DAY, KLineType.INDEX_DAY]:
+                from stock.stock_data_tools import get_previous_trading_day
+                previous_trading_day = get_previous_trading_day()
+                has_previous_trading_day_data = any(
+                    kline.datetime.startswith(previous_trading_day) for kline in kline_data
+                )
+                
+                if not has_previous_trading_day_data:
+                    print(f"⚠️  缓存不包含前一个交易日数据({previous_trading_day})，需要重新拉取: {symbol} {kline_type.value}")
+                    return None
+                else:
+                    print(f"✅ 缓存包含前一个交易日数据({previous_trading_day}): {symbol} {kline_type.value}")
+            
             return kline_data
             
         except Exception as e:

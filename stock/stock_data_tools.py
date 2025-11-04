@@ -713,3 +713,20 @@ def get_chip_cache_status(stock_code: str = None) -> Dict:
     chip_cache = get_chip_cache_manager()
     return chip_cache.get_cache_status(stock_code)
 
+def get_previous_trading_day() -> str:
+    """计算前一个交易日"""
+    today = datetime.now()
+    weekday = today.weekday()  # 0=Monday, 1=Tuesday, ..., 6=Sunday
+    
+    if weekday == 0:
+        # 周一，前一个交易日是上周五
+        prev_trading_day = today - timedelta(days=3)
+    elif weekday == 6:
+        # 周日，前一个交易日是上周五
+        prev_trading_day = today - timedelta(days=2)
+    else:
+        # 周二到周六，前一个交易日是前一天
+        prev_trading_day = today - timedelta(days=1)
+    
+    return prev_trading_day.strftime("%Y-%m-%d")
+
