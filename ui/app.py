@@ -59,7 +59,7 @@ def main():
         
         menu = st.radio(
             "选择功能:",
-            ["大盘分析", "股票分析", "缓存管理", "Token统计", "设置"],
+            ["大盘分析", "股票分析", "批量分析", "缓存管理", "Token统计", "设置"],
             index=0,
             help="选择要使用的功能模块"
         )
@@ -73,6 +73,8 @@ def main():
         display_market_overview()
     elif menu == "股票分析":
         display_analysis_page()
+    elif menu == "批量分析":
+        display_batch_analysis_page()
     elif menu == "缓存管理":
         display_cache_management()
     elif menu == "Token统计":
@@ -214,6 +216,189 @@ def display_analysis_page():
                 st.info("请输入股票代码并点击查询按钮")
     
     st.markdown("---")
+    st.markdown(
+        """
+        <div style='text-align: center; color: #666;'>
+            <small>XY Stock 股票分析系统 | 数据仅供参考，不构成任何投资建议</small>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def display_batch_analysis_page():
+    """显示批量股票分析页面"""
+    st.header("🏢 批量股票分析")
+    
+    market_type = st.selectbox(
+        "选择市场类型:",
+        MARKET_TYPES,
+        index=0,
+        help="选择要查询的股票市场类型"
+    )
+    
+    if market_type in STOCK_CODE_EXAMPLES:
+        examples = ", ".join(STOCK_CODE_EXAMPLES[market_type])
+        st.caption(f"示例代码: {examples}")
+    
+    stock_codes = st.text_area(
+        "股票代码列表（每行一个）:",
+        placeholder=f"请输入{market_type}代码，每行一个",
+        help=f"输入{market_type}代码列表，每行一个进行批量分析",
+        height=150
+    )
+    
+    use_ai_analysis = st.checkbox("🤖 AI智能分析", value=False, help="选中后将使用AI对股票进行全面分析，包括行情、新闻、筹码、基本面等")
+    use_cache = st.checkbox("💾 使用缓存数据", value=True, help="使用缓存数据可以加快查询速度，取消勾选将强制获取最新数据")
+    
+    # 用户观点输入框（仅在选择AI分析时显示）
+    user_opinion = ""
+    user_position = "不确定"
+    if use_ai_analysis:
+        user_opinion = st.text_area(
+            "补充观点（可选）:",
+            placeholder="请输入您对这些股票的观点、看法或关注的重点...",
+            help="输入您的投资观点或关注的重点，AI将结合多维度分析给出综合建议",
+            height=100
+        )
+        user_position = st.selectbox(
+            "当前持仓状态:",
+            options=["不确定", "空仓", "低仓位", "中仓位", "重仓", "满仓"],
+            index=0,
+            help="请选择您当前的大致持仓状态"
+        )
+    
+    col1, col2, col3 = st.columns([1, 1, 4])
+    with col1:
+        query_btn = st.button("🔍 开始批量分析", type="primary")
+    with col2:
+        clear_btn = st.button("🗑️ 重置")
+    
+    # 处理按钮逻辑 - 使用session_state保持状态
+    if query_btn and stock_codes.strip():
+        # 只有在明确点击查询按钮时才设置显示状态
+        st.session_state['show_batch_results'] = True
+        st.session_state['batch_stock_codes'] = stock_codes.strip()
+        st.session_state['batch_market_type'] = market_type
+        st.session_state['batch_query_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        st.session_state['batch_use_cache'] = use_cache
+        st.session_state['batch_just_reset'] = False  # 标记非重置状态
+        
+        if use_ai_analysis:
+            st.session_state['batch_include_ai_analysis'] = True
+            st.session_state['batch_user_opinion'] = user_opinion
+            st.session_state['batch_user_position'] = user_position
+        else:
+            st.session_state['batch_include_ai_analysis'] = False
+    else:
+        st.session_state['batch_use_cache'] = True  # 避免在不使用缓存时由于刷新控件导致重复查询
+    
+    if clear_btn:
+        # 标记为刚刚重置，防止意外触发查询
+        st.session_state['batch_just_reset'] = True
+        
+        # 清除所有相关的session state
+        keys_to_clear = [
+            'show_batch_results', 'batch_stock_codes', 'batch_market_type', 
+            'batch_query_time', 'batch_include_ai_analysis', 'batch_user_opinion', 
+            'batch_user_position', 'batch_use_cache', 'batch_analysis_results'
+        ]
+        
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]
+        
+        st.rerun()
+    
+    st.subheader("分析结果")
+    
+    result_container = st.container()
+    
+    # 只有在没有刚刚重置的情况下才显示股票信息
+    if st.session_state.get('show_batch_results', False) and not st.session_state.get('batch_just_reset', False):
+        batch_stock_codes = st.session_state.get('batch_stock_codes', '')
+        batch_market_type = st.session_state.get('batch_market_type', '')
+        batch_query_time = st.session_state.get('batch_query_time', '')
+        
+        with result_container:
+            with st.spinner("正在批量分析数据..."):
+                try:
+                    # 解析股票代码列表
+                    stock_code_list = [code.strip() for code in batch_stock_codes.split("\n") if code.strip()]
+                    
+                    # 获取股票身份信息列表
+                    stock_identities = []
+                    for stock_code in stock_code_list:
+                        stock_identity = get_stock_identity(stock_code, batch_market_type)
+                        if stock_identity is None or stock_identity.get('error'):
+                            st.error(f"获取股票代码{stock_code}失败")
+                        else:
+                            stock_identities.append(stock_identity)
+                    
+                    # 导入批量分析函数
+                    from stock.stock_ai_analysis import generate_batch_analysis_report
+                    from stock.stock_data_tools import get_stock_tools
+                    
+                    # 生成批量分析报告
+                    stock_tools = get_stock_tools()
+                    batch_results = generate_batch_analysis_report(
+                        stock_identities=stock_identities,
+                        user_opinion=st.session_state.get('batch_user_opinion', ''),
+                        user_position=st.session_state.get('batch_user_position', '不确定'),
+                        stock_tools=stock_tools,
+                        truncate_data=False
+                    )
+                    
+                    # 保存结果到session_state
+                    st.session_state['batch_analysis_results'] = batch_results
+                    
+                    # 显示分析结果 - 使用tab方式呈现每个股票
+                    if stock_identities:
+                        # 创建股票tab标签
+                        stock_tabs = []
+                        for stock_identity in stock_identities:
+                            tab_name = f"{stock_identity['name']} ({stock_identity['code']})"
+                            stock_tabs.append(tab_name)
+                        
+                        # 创建tabs
+                        tabs = st.tabs(stock_tabs)
+                        
+                        # 在每个tab中显示对应的股票分析
+                        from ui.components.page_stock import display_stock_info
+                        for i, stock_identity in enumerate(stock_identities):
+                            with tabs[i]:
+                                # 复制批量分析的会话状态到单个股票分析的会话状态中
+                                # 确保基本面分析等功能能正确获取配置
+                                st.session_state['use_cache'] = st.session_state.get('batch_use_cache', True)
+                                st.session_state['include_ai_analysis'] = st.session_state.get('batch_include_ai_analysis', False)
+                                st.session_state['user_opinion'] = st.session_state.get('batch_user_opinion', '')
+                                st.session_state['user_position'] = st.session_state.get('batch_user_position', '不确定')
+                                
+                                # 调用单个股票分析函数
+                                display_stock_info(stock_identity)
+                    
+                    st.markdown(f"---")
+                    st.info(f"批量分析完成，共分析了{len(batch_results)}只股票，查询时间: {batch_query_time}")
+                    
+                except Exception as e:
+                    st.error(f"批量分析失败: {str(e)}")
+                    st.write("请检查股票代码是否正确，或稍后重试。")
+                    
+                    with st.expander("🔍 错误详情", expanded=False):
+                        st.code(str(e), language="text")
+    else:
+        # 清除重置标志，避免影响后续操作
+        if 'batch_just_reset' in st.session_state:
+            del st.session_state['batch_just_reset']
+            
+        if query_btn:
+            if not stock_codes.strip():
+                with result_container:
+                    st.warning("请输入股票代码列表")
+        else:
+            with result_container:
+                st.info("请输入股票代码列表并点击开始批量分析按钮")
+    
     st.markdown(
         """
         <div style='text-align: center; color: #666;'>

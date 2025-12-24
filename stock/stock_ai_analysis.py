@@ -876,3 +876,53 @@ def generate_comprehensive_analysis_report(
             stock_code=stock_code,
             data_sources=all_data_sources
         )
+
+
+def generate_batch_analysis_report(
+    stock_identities: List[Dict[str, Any]],
+    user_opinion: str = "",
+    user_position: str = "不确定",
+    stock_tools=None,
+    market_tools=None,
+    truncate_data: bool = False
+) -> List[AnalysisResult]:
+    """生成批量综合分析报告
+    
+    Args:
+        stock_identities: 股票身份信息列表
+        user_opinion: 用户观点
+        user_position: 用户持仓状态
+        stock_tools: 股票工具实例
+        market_tools: 市场工具实例
+        truncate_data: 是否截断数据
+        
+    Returns:
+        List[AnalysisResult]: 批量分析结果列表
+    """
+    results = []
+    
+    for stock_identity in stock_identities:
+        try:
+            result = generate_comprehensive_analysis_report(
+                stock_identity=stock_identity,
+                user_opinion=user_opinion,
+                user_position=user_position,
+                stock_tools=stock_tools,
+                market_tools=market_tools,
+                truncate_data=truncate_data
+            )
+            results.append(result)
+        except Exception as e:
+            print(f"生成股票{stock_identity.get('code', '未知')}分析报告失败: {e}")
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            error_result = AnalysisResult(
+                success=False,
+                report=f"生成分析报告失败: {str(e)}",
+                timestamp=timestamp,
+                error_message=str(e),
+                analysis_type="comprehensive",
+                stock_code=stock_identity.get('code', '未知')
+            )
+            results.append(error_result)
+    
+    return results
