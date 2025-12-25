@@ -59,7 +59,7 @@ def main():
         
         menu = st.radio(
             "选择功能:",
-            ["大盘分析", "股票分析", "批量分析", "缓存管理", "Token统计", "设置"],
+            ["大盘分析", "股票分析", "批量分析", "候选股票", "缓存管理", "Token统计", "设置"],
             index=0,
             help="选择要使用的功能模块"
         )
@@ -69,12 +69,18 @@ def main():
         st.write(f"- {FULL_VERSION}")
         st.write("- 端口: 8811")
     
-    if menu == "大盘分析":
+    # 检查是否需要跳转到批量分析页面
+    if st.session_state.get('redirect_to_batch_analysis', False):
+        st.session_state['redirect_to_batch_analysis'] = False
+        display_batch_analysis_page()
+    elif menu == "大盘分析":
         display_market_overview()
     elif menu == "股票分析":
         display_analysis_page()
     elif menu == "批量分析":
         display_batch_analysis_page()
+    elif menu == "候选股票":
+        display_candidate_stocks_page()
     elif menu == "缓存管理":
         display_cache_management()
     elif menu == "Token统计":
@@ -399,6 +405,129 @@ def display_batch_analysis_page():
             with result_container:
                 st.info("请输入股票代码列表并点击开始批量分析按钮")
     
+    st.markdown(
+        """
+        <div style='text-align: center; color: #666;'>
+            <small>XY Stock 股票分析系统 | 数据仅供参考，不构成任何投资建议</small>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+
+def display_candidate_stocks_page():
+    """显示候选股票管理页面"""
+    st.header("🎯 候选股票管理")
+    
+    # 导入候选股票管理模块
+    from stock.candidate_stocks import get_candidate_stocks, add_candidate_stock, remove_candidate_stock, clear_candidate_stocks
+    from stock.stock_code_map import get_stock_identity
+    from ui.config import MARKET_TYPES
+    
+    # 显示当前候选股票列表
+    candidate_stocks = get_candidate_stocks()
+    
+    # 添加股票到候选列表的界面
+    st.subheader("添加候选股票")
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        stock_code = st.text_input(
+            "股票代码/名称:",
+            placeholder="请输入股票代码或名称",
+            help="输入股票代码或名称添加到候选列表"
+        )
+    with col2:
+        market_type = st.selectbox(
+            "市场类型:",
+            MARKET_TYPES,
+            index=0,
+            help="选择股票的市场类型"
+        )
+    with col3:
+        add_btn = st.button("➕ 添加", type="primary")
+    
+    if add_btn and stock_code.strip():
+        stock_identity = get_stock_identity(stock_code.strip(), market_type)
+        if stock_identity is None or stock_identity.get('error'):
+            st.error(f"获取股票代码{stock_code}失败")
+        else:
+            if add_candidate_stock(stock_identity):
+                st.success(f"成功添加 {stock_identity['name']} ({stock_identity['code']}) 到候选列表")
+                st.rerun()
+            else:
+                st.warning(f"{stock_identity['name']} ({stock_identity['code']}) 已在候选列表中")
+    
+    # 显示候选股票列表
+    st.subheader("候选股票列表")
+    if candidate_stocks:
+        # 显示股票列表表格
+        st.table(
+            {
+                "股票名称": [stock['name'] for stock in candidate_stocks],
+                "股票代码": [stock['code'] for stock in candidate_stocks],
+                "市场类型": [stock['market_name'] for stock in candidate_stocks]
+            }
+        )
+        
+        # 批量分析按钮
+        col1, col2, col3 = st.columns([1, 1, 4])
+        with col1:
+            if st.button("🚀 批量分析所有"):
+                # 保存候选股票到会话状态，然后跳转到批量分析页面
+                st.session_state['batch_stock_codes'] = '\n'.join([stock['code'] for stock in candidate_stocks])
+                st.session_state['batch_market_type'] = candidate_stocks[0]['market_name'] if candidate_stocks else MARKET_TYPES[0]
+                st.session_state['show_batch_results'] = True
+                st.session_state['batch_query_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                st.session_state['batch_use_cache'] = True
+                st.session_state['batch_include_ai_analysis'] = False
+                st.session_state['batch_just_reset'] = False
+                
+                # 设置跳转标志
+                st.session_state['redirect_to_batch_analysis'] = True
+                
+                # 切换到批量分析页面
+                st.rerun()
+        
+        with col2:
+            if st.button("🗑️ 清空列表", type="secondary", help="清空所有候选股票"):
+                if st.session_state.get('confirm_clear', False):
+                    clear_candidate_stocks()
+                    st.success("已清空候选股票列表")
+                    st.session_state['confirm_clear'] = False
+                    st.rerun()
+                else:
+                    st.warning("确定要清空所有候选股票吗？")
+                    st.session_state['confirm_clear'] = True
+                    st.rerun()
+        
+        # 单个股票操作
+        st.subheader("管理单个股票")
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            stock_to_remove = st.selectbox(
+                "选择要移除的股票:",
+                options=[f"{stock['name']} ({stock['code']})" for stock in candidate_stocks],
+                help="选择要从候选列表中移除的股票"
+            )
+        with col3:
+            remove_btn = st.button("➖ 移除", type="secondary")
+        
+        if remove_btn and stock_to_remove:
+            # 解析股票代码和名称
+            stock_code = stock_to_remove.split('(')[1].split(')')[0]
+            # 获取市场类型
+            market_type = next(stock['market_name'] for stock in candidate_stocks if stock['code'] == stock_code)
+            # 移除股票
+            if remove_candidate_stock(stock_code, market_type):
+                st.success(f"成功从候选列表中移除 {stock_to_remove}")
+                st.rerun()
+            else:
+                st.error(f"移除 {stock_to_remove} 失败")
+    else:
+        st.info("候选股票列表为空，请添加股票")
+    
+    # 页脚信息
     st.markdown(
         """
         <div style='text-align: center; color: #666;'>
