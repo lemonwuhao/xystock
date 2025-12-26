@@ -110,8 +110,8 @@ def display_analysis_page():
         help=f"输入{market_type}代码进行查询"
     )
     
-    use_ai_analysis = st.checkbox("🤖 AI智能分析", value=False, help="选中后将使用AI对股票进行全面分析，包括行情、新闻、筹码、基本面等")
-    use_cache = st.checkbox("💾 使用缓存数据", value=True, help="使用缓存数据可以加快查询速度，取消勾选将强制获取最新数据")
+    use_ai_analysis = st.checkbox("🤖 AI智能分析", value=st.session_state.get('batch_include_ai_analysis', True), help="选中后将使用AI对股票进行全面分析，包括行情、新闻、筹码、基本面等")
+    use_cache = st.checkbox("💾 使用缓存数据", value=False, help="使用缓存数据可以加快查询速度，取消勾选将强制获取最新数据")
     
     # 用户观点输入框（仅在选择AI分析时显示）
     user_opinion = ""
@@ -254,8 +254,8 @@ def display_batch_analysis_page():
         height=150
     )
     
-    use_ai_analysis = st.checkbox("🤖 AI智能分析", value=False, help="选中后将使用AI对股票进行全面分析，包括行情、新闻、筹码、基本面等")
-    use_cache = st.checkbox("💾 使用缓存数据", value=True, help="使用缓存数据可以加快查询速度，取消勾选将强制获取最新数据")
+    use_ai_analysis = st.checkbox("🤖 AI智能分析", value=st.session_state.get('batch_include_ai_analysis', True), help="选中后将使用AI对股票进行全面分析，包括行情、新闻、筹码、基本面等")
+    use_cache = st.checkbox("💾 使用缓存数据", value=False, help="使用缓存数据可以加快查询速度，取消勾选将强制获取最新数据")
     
     # 用户观点输入框（仅在选择AI分析时显示）
     user_opinion = ""
@@ -376,7 +376,7 @@ def display_batch_analysis_page():
                                 # 复制批量分析的会话状态到单个股票分析的会话状态中
                                 # 确保基本面分析等功能能正确获取配置
                                 st.session_state['use_cache'] = st.session_state.get('batch_use_cache', True)
-                                st.session_state['include_ai_analysis'] = st.session_state.get('batch_include_ai_analysis', False)
+                                st.session_state['include_ai_analysis'] = st.session_state.get('batch_include_ai_analysis', True)
                                 st.session_state['user_opinion'] = st.session_state.get('batch_user_opinion', '')
                                 st.session_state['user_position'] = st.session_state.get('batch_user_position', '不确定')
                                 
@@ -480,7 +480,7 @@ def display_candidate_stocks_page():
                 st.session_state['show_batch_results'] = True
                 st.session_state['batch_query_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 st.session_state['batch_use_cache'] = True
-                st.session_state['batch_include_ai_analysis'] = False
+                st.session_state['batch_include_ai_analysis'] = True
                 st.session_state['batch_just_reset'] = False
                 
                 # 设置跳转标志

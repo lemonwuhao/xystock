@@ -249,8 +249,17 @@ def get_market_news_caixin(limit=10, debug=False):
         
     except Exception as e:
         print(f"   ⚠️ 获取财新网新闻失败: {e}")
-        ret = False
+        ret = True  # 改为True，即使财新网API失败，也不影响整体程序运行
         result['error'] = str(e)
+        # 提供一个友好的错误信息，而不是让程序崩溃
+        result['market_news'] = []
+        result['news_summary'] = {
+            'total_market_news_count': 0,
+            'data_source': '财新网',
+            'data_freshness': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'news_type': '宏观经济、政策面、大盘相关',
+            'status': 'API调用失败，已跳过'
+        }
     
     return ret, result
 
